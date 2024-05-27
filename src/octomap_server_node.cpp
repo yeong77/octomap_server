@@ -49,6 +49,7 @@ int main(int argc, char** argv){
   const ros::NodeHandle& private_nh = ros::NodeHandle("~");
   std::string mapFilename(""), mapFilenameParam("");
 
+
   if (argc > 2 || (argc == 2 && std::string(argv[1]) == "-h")){
     ROS_ERROR("%s", USAGE);
     exit(-1);

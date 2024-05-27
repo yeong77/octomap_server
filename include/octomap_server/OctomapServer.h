@@ -34,6 +34,9 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <std_msgs/ColorRGBA.h>
+#include <std_msgs/Float32.h> //hederfile include
+#include <boost/bind.hpp> //hederfile include
+
 
 // #include <moveit_msgs/CollisionObject.h>
 // #include <moveit_msgs/CollisionMap.h>
@@ -121,6 +124,7 @@ protected:
   }
 
   void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
+  void resolutionCallback(const std_msgs::Float32::ConstPtr& msg);
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
@@ -200,6 +204,7 @@ protected:
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
   ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub;
+  ros::Subscriber m_resolutionSub; //resolution subscriber 선언
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;

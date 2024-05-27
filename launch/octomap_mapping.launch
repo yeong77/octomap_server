@@ -7,8 +7,8 @@
   www.ros.org/wiki/octomap_server for details  
 -->
 <launch>
-	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-		<param name="resolution" value="0.01" />
+	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server" output="screen">
+		<!--param name="resolution" value="0.64" /-->
 		
 		<!-- fixed map frame (set to 'map' if SLAM or localization running!) -->
 		<param name="frame_id" type="string" value="map" />

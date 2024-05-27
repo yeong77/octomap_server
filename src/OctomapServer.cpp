@@ -52,7 +52,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.05),
+  m_res(0.01),
   m_treeDepth(0),
   m_maxTreeDepth(0),
   m_pointcloudMinX(-std::numeric_limits<double>::max()),
@@ -101,7 +101,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
 
-  private_nh.param("resolution", m_res, m_res);
+  //private_nh.param("resolution", m_res, m_res);
   private_nh.param("sensor_model/hit", probHit, 0.7);
   private_nh.param("sensor_model/miss", probMiss, 0.4);
   private_nh.param("sensor_model/min", thresMin, 0.12);
@@ -174,6 +174,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
 
   m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
+  m_resolutionSub = m_nh.subscribe<std_msgs::Float32>("/resolution", 10, boost::bind(&OctomapServer::resolutionCallback, this, _1)); // resolution 서브스크라이버 선언
   m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
   m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1));
 
@@ -185,6 +186,13 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f;
   f = boost::bind(&OctomapServer::reconfigureCallback, this, _1, _2);
   m_reconfigureServer.setCallback(f);
+}
+
+//resolution value callback 함수
+void OctomapServer::resolutionCallback(const std_msgs::UInt16::ConstPtr& msg)
+{
+  ROS_INFO("%d", msg->data);
+
 }
 
 OctomapServer::~OctomapServer(){
@@ -1274,6 +1282,3 @@ std_msgs::ColorRGBA OctomapServer::heightMapColor(double h) {
   return color;
 }
 }
-
-
-
