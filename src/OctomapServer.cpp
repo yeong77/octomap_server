@@ -189,9 +189,9 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 }
 
 //resolution value callback 함수
-void OctomapServer::resolutionCallback(const std_msgs::UInt16::ConstPtr& msg)
+void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
-  ROS_INFO("%d", msg->data);
+  ROS_INFO("%f", msg->data);
 
 }
 
