@@ -191,7 +191,16 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 //resolution value callback 함수
 void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
-  ROS_INFO("%f", msg->data);
+  m_res = msg->data;
+  ROS_INFO("%f", m_res);
+  m_octree = new OcTreeT(m_res);
+  m_octree->setProbHit(0.7);
+  m_octree->setProbMiss(0.4);
+  m_octree->setClampingThresMin(0.12);
+  m_octree->setClampingThresMax(0.97);
+  m_treeDepth = m_octree->getTreeDepth();
+  m_maxTreeDepth = m_treeDepth;
+  m_gridmap.info.resolution = m_res;
 
 }
 
