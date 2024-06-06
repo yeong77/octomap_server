@@ -128,6 +128,8 @@ protected:
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
+  virtual void publishOctree(OcTreeT* octree, double resolution, const ros::Time& rostime, const std::string& ns);
+
 
   /**
   * @brief update occupancy map with a scan labeled as ground and nonground.
@@ -213,6 +215,7 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
   OcTreeT* m_octree;
+  OcTreeT* m_newOctree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
@@ -229,6 +232,8 @@ protected:
   bool m_publishFreeSpace;
 
   double m_res;
+  double m_newRes; // 새로운 해상도
+  bool m_newReset; //새로운 해상도 설정 여부
   unsigned m_treeDepth;
   unsigned m_maxTreeDepth;
 

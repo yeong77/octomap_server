@@ -45,6 +45,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_tfPointCloudSub(NULL),
   m_reconfigureServer(m_config_mutex),
   m_octree(NULL),
+  m_newOctree(NULL), //새로운 해상도의 옥트리 초기화  
   m_maxRange(-1.0),
   m_worldFrameId("/map"), m_baseFrameId("base_footprint"),
   m_useHeightMap(true),
@@ -52,7 +53,9 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.01),
+  m_res(0.08),
+  m_newRes(NULL), //새로운 해상도 초기화 
+  m_newReset(false), //새로운 해상도 설정 여부 초기화 
   m_treeDepth(0),
   m_maxTreeDepth(0),
   m_pointcloudMinX(-std::numeric_limits<double>::max()),
@@ -138,7 +141,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
-
+  
   double r, g, b, a;
   private_nh.param("color/r", r, 0.0);
   private_nh.param("color/g", g, 0.0);
@@ -191,16 +194,27 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 //resolution value callback 함수
 void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
-  m_res = msg->data;
-  ROS_INFO("%f", m_res);
-  m_octree = new OcTreeT(m_res);
-  m_octree->setProbHit(0.7);
-  m_octree->setProbMiss(0.4);
-  m_octree->setClampingThresMin(0.12);
-  m_octree->setClampingThresMax(0.97);
-  m_treeDepth = m_octree->getTreeDepth();
-  m_maxTreeDepth = m_treeDepth;
-  m_gridmap.info.resolution = m_res;
+  double m_newRes = msg->data;
+  ROS_INFO("Setting new resolution to %f", m_newRes);
+  
+  if (m_res != m_newRes) {
+    m_newReset = true;
+    
+    m_newOctree = new OcTreeT(m_newRes);
+
+    // 필요한 설정 다시 적용
+    m_newOctree->setProbHit(0.7);
+    m_newOctree->setProbMiss(0.4);
+    m_newOctree->setClampingThresMin(0.12);
+    m_newOctree->setClampingThresMax(0.97);
+    m_treeDepth = m_newOctree->getTreeDepth();
+    m_maxTreeDepth = m_treeDepth;
+    m_gridmap.info.resolution = m_newRes;
+
+    ROS_INFO("Resolution updated successfully.");
+  } else {
+    ROS_INFO("Resolution is already set to the requested value.");
+  }
 
 }
 
@@ -366,7 +380,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
-
+  printf("insertCallback");
   publishAll(cloud->header.stamp);
 }
 
@@ -499,14 +513,29 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 
 
 void OctomapServer::publishAll(const ros::Time& rostime){
-  ros::WallTime startTime = ros::WallTime::now();
+  
   size_t octomapSize = m_octree->size();
   // TODO: estimate num occ. voxels for size of arrays (reserve)
-  if (octomapSize <= 1){
-    ROS_WARN("Nothing to publish, octree is empty");
-    return;
+  if (m_newReset == false) {
+    publishOctree(m_octree, m_res, rostime, "original_octree");
+    printf("aaaa");
+  
   }
+  // 새로운 해상도의 옥트리 퍼블리시
+  else if (m_newReset) {
+    size_t newOctomapSize = m_newOctree->size();
+    //if (newOctomapSize > 1) {
+    publishOctree(m_newOctree, m_newRes, rostime, "new_resolution_octree");
+    printf("bbbb");
+    //} else {
+    //  ROS_WARN("aaNothing to publish, new resolution octree is empty");
+    //}
+  }
+}
 
+void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros::Time& rostime, const std::string& ns){
+  printf("%f", resolution);
+  ros::WallTime startTime = ros::WallTime::now();
   bool publishFreeMarkerArray = m_publishFreeSpace && (m_latchedTopics || m_fmarkerPub.getNumSubscribers() > 0);
   bool publishMarkerArray = (m_latchedTopics || m_markerPub.getNumSubscribers() > 0);
   bool publishPointCloud = (m_latchedTopics || m_pointCloudPub.getNumSubscribers() > 0);
@@ -534,8 +563,8 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   handlePreNodeTraversal(rostime);
 
   // now, traverse all leafs in the tree:
-  for (OcTreeT::iterator it = m_octree->begin(m_maxTreeDepth),
-      end = m_octree->end(); it != end; ++it)
+  for (OcTreeT::iterator it = octree->begin(m_maxTreeDepth),
+      end = octree->end(); it != end; ++it)
   {
     bool inUpdateBBX = isInUpdateBBX(it);
 
@@ -544,7 +573,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
     if (inUpdateBBX)
       handleNodeInBBX(it);
 
-    if (m_octree->isNodeOccupied(*it)){
+    if (octree->isNodeOccupied(*it)){
       double z = it.getZ();
       if (z > m_occupancyMinZ && z < m_occupancyMaxZ)
       {
@@ -581,8 +610,8 @@ void OctomapServer::publishAll(const ros::Time& rostime){
           occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
           if (m_useHeightMap){
             double minX, minY, minZ, maxX, maxY, maxZ;
-            m_octree->getMetricMin(minX, minY, minZ);
-            m_octree->getMetricMax(maxX, maxY, maxZ);
+            octree->getMetricMin(minX, minY, minZ);
+            octree->getMetricMax(maxX, maxY, maxZ);
 
             double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
             occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
@@ -627,7 +656,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
             assert(idx < freeNodesVis.markers.size());
 
             geometry_msgs::Point cubeCenter;
-            cubeCenter.x = x;
+            cubeCenter.x = x; 
             cubeCenter.y = y;
             cubeCenter.z = z;
 
@@ -645,7 +674,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // finish MarkerArray:
   if (publishMarkerArray){
     for (unsigned i= 0; i < occupiedNodesVis.markers.size(); ++i){
-      double size = m_octree->getNodeSize(i);
+      double size = octree->getNodeSize(i);
 
       occupiedNodesVis.markers[i].header.frame_id = m_worldFrameId;
       occupiedNodesVis.markers[i].header.stamp = rostime;
@@ -672,7 +701,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // finish FreeMarkerArray:
   if (publishFreeMarkerArray){
     for (unsigned i= 0; i < freeNodesVis.markers.size(); ++i){
-      double size = m_octree->getNodeSize(i);
+      double size = octree->getNodeSize(i);
 
       freeNodesVis.markers[i].header.frame_id = m_worldFrameId;
       freeNodesVis.markers[i].header.stamp = rostime;
@@ -1198,6 +1227,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
       m_octree->setProbMiss(config.sensor_model_miss);
 	}
   }
+  printf("reconfigureCallback");
   publishAll();
 }
 
