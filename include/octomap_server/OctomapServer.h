@@ -30,6 +30,7 @@
 #ifndef OCTOMAP_SERVER_OCTOMAPSERVER_H
 #define OCTOMAP_SERVER_OCTOMAPSERVER_H
 
+
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/OccupancyGrid.h>
@@ -69,14 +70,19 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
+#include <octomap/OcTree.h>
+#include <octomap/ColorOcTree.h>
+
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
+
 #endif
 
 namespace octomap_server {
 class OctomapServer {
+
 
 public:
 #ifdef COLOR_OCTOMAP_SERVER
@@ -87,6 +93,7 @@ public:
   typedef pcl::PointXYZ PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
   typedef octomap::OcTree OcTreeT;
+
 #endif
   typedef octomap_msgs::GetOctomap OctomapSrv;
   typedef octomap_msgs::BoundingBoxQuery BBXSrv;
@@ -100,8 +107,11 @@ public:
 
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
+  
 
 protected:
+  OcTreeT* getCurrentOctree(); // 현재 옥트리 함수 선언;
+
   inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min) {
     for (unsigned i = 0; i < 3; ++i)
       min[i] = std::min(in[i], min[i]);
@@ -124,11 +134,12 @@ protected:
   }
 
   void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
-  void resolutionCallback(const std_msgs::Float32::ConstPtr& msg);
+  void resolutionCallback(const std_msgs::Float32::ConstPtr& msg); // 해상도 콜백 함수 선언 
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
-  virtual void publishAll(const ros::Time& rostime = ros::Time::now());
-  virtual void publishOctree(OcTreeT* octree, double resolution, const ros::Time& rostime, const std::string& ns);
+  virtual void publishAll(const ros::Time& rostime = ros::Time::now());  
+  
+
 
 
   /**
@@ -177,7 +188,6 @@ protected:
 
   /// updates the downprojected 2D map as either occupied or free
   virtual void update2DMap(const OcTreeT::iterator& it, bool occupied);
-
   inline unsigned mapIdx(int i, int j) const {
     return m_gridmap.info.width * j + i;
   }
@@ -215,12 +225,13 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
   OcTreeT* m_octree;
-  OcTreeT* m_newOctree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
+  std::map<double, OcTreeT*> octreeMap; // 옥트리맵 선업 
 
   double m_maxRange;
+  double m_minRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
   bool m_useHeightMap;
@@ -232,6 +243,7 @@ protected:
   bool m_publishFreeSpace;
 
   double m_res;
+  double currentResolution;
   double m_newRes; // 새로운 해상도
   bool m_newReset; //새로운 해상도 설정 여부
   unsigned m_treeDepth;
@@ -257,6 +269,7 @@ protected:
   bool m_compressMap;
 
   bool m_initConfig;
+  
 
   // downprojected 2D map:
   bool m_incrementalUpdate;
@@ -267,7 +280,7 @@ protected:
   unsigned m_multires2DScale;
   bool m_projectCompleteMap;
   bool m_useColoredMap;
-};
-}
 
+  };
+}
 #endif

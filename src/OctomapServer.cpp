@@ -30,6 +30,7 @@
 #include <octomap_server/OctomapServer.h>
 
 using namespace octomap;
+using namespace octomap_server;
 using octomap_msgs::Octomap;
 
 bool is_equal (double a, double b, double epsilon = 1.0e-7)
@@ -45,7 +46,6 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_tfPointCloudSub(NULL),
   m_reconfigureServer(m_config_mutex),
   m_octree(NULL),
-  m_newOctree(NULL), //새로운 해상도의 옥트리 초기화  
   m_maxRange(-1.0),
   m_worldFrameId("/map"), m_baseFrameId("base_footprint"),
   m_useHeightMap(true),
@@ -53,8 +53,9 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.08),
-  m_newRes(NULL), //새로운 해상도 초기화 
+  m_res(0.64),
+  currentResolution(0.0), //현재 해상도 초기화
+  m_newRes(0.0), //새로운 해상도 초기화 
   m_newReset(false), //새로운 해상도 설정 여부 초기화 
   m_treeDepth(0),
   m_maxTreeDepth(0),
@@ -141,6 +142,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
+  octreeMap[m_res] = m_octree; 
   
   double r, g, b, a;
   private_nh.param("color/r", r, 0.0);
@@ -200,14 +202,15 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
   if (m_res != m_newRes) {
     m_newReset = true;
     
-    m_newOctree = new OcTreeT(m_newRes);
+    currentResolution = m_newRes;
+    
 
     // 필요한 설정 다시 적용
-    m_newOctree->setProbHit(0.7);
-    m_newOctree->setProbMiss(0.4);
-    m_newOctree->setClampingThresMin(0.12);
-    m_newOctree->setClampingThresMax(0.97);
-    m_treeDepth = m_newOctree->getTreeDepth();
+    getCurrentOctree()->setProbHit(0.7);
+    getCurrentOctree()->setProbMiss(0.4);
+    getCurrentOctree()->setClampingThresMin(0.12);
+    getCurrentOctree()->setClampingThresMax(0.97);
+    m_treeDepth = getCurrentOctree()->getTreeDepth();
     m_maxTreeDepth = m_treeDepth;
     m_gridmap.info.resolution = m_newRes;
 
@@ -215,8 +218,19 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
   } else {
     ROS_INFO("Resolution is already set to the requested value.");
   }
-
 }
+
+#ifdef COLOR_OCTOMAP_SERVER
+OcTreeT* OctomapServer::getCurrentOctree() {
+    if (octreeMap.find(currentResolution) != octreeMap.end()) {
+      
+        return octreeMap[currentResolution];
+    } else {
+        ROS_ERROR("No Octree found for the current resolution: %f", currentResolution);
+        return nullptr;
+    }
+}
+#endif
 
 OctomapServer::~OctomapServer(){
   if (m_tfPointCloudSub){
@@ -387,8 +401,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
 
-  if (!m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
-    || !m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMax))
+  if (!getCurrentOctree()->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
+    || !getCurrentOctree()->coordToKeyChecked(sensorOrigin, m_updateBBXMax))
   {
     ROS_ERROR_STREAM("Could not generate Key for origin "<<sensorOrigin);
   }
@@ -408,12 +422,12 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
     }
 
     // only clear space (ground points)
-    if (m_octree->computeRayKeys(sensorOrigin, point, m_keyRay)){
+    if (getCurrentOctree()->computeRayKeys(sensorOrigin, point, m_keyRay)){
       free_cells.insert(m_keyRay.begin(), m_keyRay.end());
     }
 
     octomap::OcTreeKey endKey;
-    if (m_octree->coordToKeyChecked(point, endKey)){
+    if (getCurrentOctree()->coordToKeyChecked(point, endKey)){
       updateMinKey(endKey, m_updateBBXMin);
       updateMaxKey(endKey, m_updateBBXMax);
     } else{
@@ -428,28 +442,28 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
     if ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange) ) {
 
       // free cells
-      if (m_octree->computeRayKeys(sensorOrigin, point, m_keyRay)){
+      if (getCurrentOctree()->computeRayKeys(sensorOrigin, point, m_keyRay)){
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
       }
       // occupied endpoint
       OcTreeKey key;
-      if (m_octree->coordToKeyChecked(point, key)){
+      if (getCurrentOctree()->coordToKeyChecked(point, key)){
         occupied_cells.insert(key);
 
         updateMinKey(key, m_updateBBXMin);
         updateMaxKey(key, m_updateBBXMax);
 
 #ifdef COLOR_OCTOMAP_SERVER // NB: Only read and interpret color if it's an occupied node
-        m_octree->averageNodeColor(it->x, it->y, it->z, /*r=*/it->r, /*g=*/it->g, /*b=*/it->b);
+        getCurrentOctree()->averageNodeColor(it->x, it->y, it->z, /*r=*/it->r, /*g=*/it->g, /*b=*/it->b);
 #endif
       }
     } else {// ray longer than maxrange:;
       point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
-      if (m_octree->computeRayKeys(sensorOrigin, new_end, m_keyRay)){
+      if (getCurrentOctree()->computeRayKeys(sensorOrigin, new_end, m_keyRay)){
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
 
         octomap::OcTreeKey endKey;
-        if (m_octree->coordToKeyChecked(new_end, endKey)){
+        if (getCurrentOctree()->coordToKeyChecked(new_end, endKey)){
           free_cells.insert(endKey);
           updateMinKey(endKey, m_updateBBXMin);
           updateMaxKey(endKey, m_updateBBXMax);
@@ -465,13 +479,13 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
   // mark free cells only if not seen occupied in this cloud
   for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
     if (occupied_cells.find(*it) == occupied_cells.end()){
-      m_octree->updateNode(*it, false);
+      getCurrentOctree()->updateNode(*it, false);
     }
   }
 
   // now mark all occupied cells:
   for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
-    m_octree->updateNode(*it, true);
+    getCurrentOctree()->updateNode(*it, true);
   }
 
   // TODO: eval lazy+updateInner vs. proper insertion
@@ -493,13 +507,13 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 //   }
 
   // TODO: we could also limit the bbx to be within the map bounds here (see publishing check)
-  minPt = m_octree->keyToCoord(m_updateBBXMin);
-  maxPt = m_octree->keyToCoord(m_updateBBXMax);
+  minPt = getCurrentOctree()->keyToCoord(m_updateBBXMin);
+  maxPt = getCurrentOctree()->keyToCoord(m_updateBBXMax);
   ROS_DEBUG_STREAM("Updated area bounding box: "<< minPt << " - "<<maxPt);
   ROS_DEBUG_STREAM("Bounding box keys (after): " << m_updateBBXMin[0] << " " <<m_updateBBXMin[1] << " " << m_updateBBXMin[2] << " / " <<m_updateBBXMax[0] << " "<<m_updateBBXMax[1] << " "<< m_updateBBXMax[2]);
 
   if (m_compressMap)
-    m_octree->prune();
+    getCurrentOctree()->prune();
 
 #ifdef COLOR_OCTOMAP_SERVER
   if (colors)
@@ -513,35 +527,19 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 
 
 void OctomapServer::publishAll(const ros::Time& rostime){
-  
-  size_t octomapSize = m_octree->size();
-  // TODO: estimate num occ. voxels for size of arrays (reserve)
-  if (m_newReset == false) {
-    publishOctree(m_octree, m_res, rostime, "original_octree");
-    printf("aaaa");
-  
-  }
-  // 새로운 해상도의 옥트리 퍼블리시
-  else if (m_newReset) {
-    size_t newOctomapSize = m_newOctree->size();
-    //if (newOctomapSize > 1) {
-    publishOctree(m_newOctree, m_newRes, rostime, "new_resolution_octree");
-    printf("bbbb");
-    //} else {
-    //  ROS_WARN("aaNothing to publish, new resolution octree is empty");
-    //}
-  }
-}
-
-void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros::Time& rostime, const std::string& ns){
-  printf("%f", resolution);
   ros::WallTime startTime = ros::WallTime::now();
+  size_t octomapSize = getCurrentOctree()->size();
+  // TODO: estimate num occ. voxels for size of arrays (reserve)
+  if (octomapSize <= 1){
+    ROS_WARN("Nothing to publish, octree is empty");
+    return;
+  }
+
   bool publishFreeMarkerArray = m_publishFreeSpace && (m_latchedTopics || m_fmarkerPub.getNumSubscribers() > 0);
   bool publishMarkerArray = (m_latchedTopics || m_markerPub.getNumSubscribers() > 0);
   bool publishPointCloud = (m_latchedTopics || m_pointCloudPub.getNumSubscribers() > 0);
   bool publishBinaryMap = (m_latchedTopics || m_binaryMapPub.getNumSubscribers() > 0);
   bool publishFullMap = (m_latchedTopics || m_fullMapPub.getNumSubscribers() > 0);
-  m_publish2DMap = (m_latchedTopics || m_mapPub.getNumSubscribers() > 0);
 
   // init markers for free space:
   visualization_msgs::MarkerArray freeNodesVis;
@@ -563,8 +561,8 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
   handlePreNodeTraversal(rostime);
 
   // now, traverse all leafs in the tree:
-  for (OcTreeT::iterator it = octree->begin(m_maxTreeDepth),
-      end = octree->end(); it != end; ++it)
+  for (OcTreeT::iterator it = getCurrentOctree()->begin(m_maxTreeDepth),
+      end = getCurrentOctree()->end(); it != end; ++it)
   {
     bool inUpdateBBX = isInUpdateBBX(it);
 
@@ -573,9 +571,10 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
     if (inUpdateBBX)
       handleNodeInBBX(it);
 
-    if (octree->isNodeOccupied(*it)){
+    if (getCurrentOctree()->isNodeOccupied(*it)){
       double z = it.getZ();
-      if (z > m_occupancyMinZ && z < m_occupancyMaxZ)
+      double half_size = it.getSize() / 2.0;
+      if (z + half_size > m_occupancyMinZ && z - half_size < m_occupancyMaxZ)
       {
         double size = it.getSize();
         double x = it.getX();
@@ -610,8 +609,8 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
           occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
           if (m_useHeightMap){
             double minX, minY, minZ, maxX, maxY, maxZ;
-            octree->getMetricMin(minX, minY, minZ);
-            octree->getMetricMax(maxX, maxY, maxZ);
+            getCurrentOctree()->getMetricMin(minX, minY, minZ);
+            getCurrentOctree()->getMetricMax(maxX, maxY, maxZ);
 
             double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
             occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
@@ -640,7 +639,8 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
       }
     } else{ // node not occupied => mark as free in 2D map if unknown so far
       double z = it.getZ();
-      if (z > m_occupancyMinZ && z < m_occupancyMaxZ)
+      double half_size = it.getSize() / 2.0;
+      if (z + half_size > m_occupancyMinZ && z - half_size < m_occupancyMaxZ)
       {
         handleFreeNode(it);
         if (inUpdateBBX)
@@ -656,7 +656,7 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
             assert(idx < freeNodesVis.markers.size());
 
             geometry_msgs::Point cubeCenter;
-            cubeCenter.x = x; 
+            cubeCenter.x = x;
             cubeCenter.y = y;
             cubeCenter.z = z;
 
@@ -674,7 +674,7 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
   // finish MarkerArray:
   if (publishMarkerArray){
     for (unsigned i= 0; i < occupiedNodesVis.markers.size(); ++i){
-      double size = octree->getNodeSize(i);
+      double size = getCurrentOctree()->getNodeSize(i);
 
       occupiedNodesVis.markers[i].header.frame_id = m_worldFrameId;
       occupiedNodesVis.markers[i].header.stamp = rostime;
@@ -684,6 +684,10 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
       occupiedNodesVis.markers[i].scale.x = size;
       occupiedNodesVis.markers[i].scale.y = size;
       occupiedNodesVis.markers[i].scale.z = size;
+      occupiedNodesVis.markers[i].pose.orientation.x=0;
+      occupiedNodesVis.markers[i].pose.orientation.y=0;
+      occupiedNodesVis.markers[i].pose.orientation.z=0;
+      occupiedNodesVis.markers[i].pose.orientation.w=1;
       if (!m_useColoredMap)
         occupiedNodesVis.markers[i].color = m_color;
 
@@ -701,7 +705,7 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
   // finish FreeMarkerArray:
   if (publishFreeMarkerArray){
     for (unsigned i= 0; i < freeNodesVis.markers.size(); ++i){
-      double size = octree->getNodeSize(i);
+      double size = getCurrentOctree()->getNodeSize(i);
 
       freeNodesVis.markers[i].header.frame_id = m_worldFrameId;
       freeNodesVis.markers[i].header.stamp = rostime;
@@ -742,7 +746,6 @@ void OctomapServer::publishOctree(OcTreeT* octree, double resolution, const ros:
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Map publishing in OctomapServer took %f sec", total_elapsed);
-
 }
 
 
@@ -1197,14 +1200,14 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
           config.ground_filter_plane_distance = m_groundFilterPlaneDistance;
         if(!is_equal(m_maxRange, -1.0))
           config.sensor_model_max_range = m_maxRange;
-        if(!is_equal(m_octree->getProbHit(), 0.7))
-          config.sensor_model_hit = m_octree->getProbHit();
-	    if(!is_equal(m_octree->getProbMiss(), 0.4))
-          config.sensor_model_miss = m_octree->getProbMiss();
-		if(!is_equal(m_octree->getClampingThresMin(), 0.12))
-          config.sensor_model_min = m_octree->getClampingThresMin();
-		if(!is_equal(m_octree->getClampingThresMax(), 0.97))
-          config.sensor_model_max = m_octree->getClampingThresMax();
+        if(!is_equal(getCurrentOctree()->getProbHit(), 0.7))
+          config.sensor_model_hit = getCurrentOctree()->getProbHit();
+	    if(!is_equal(getCurrentOctree()->getProbMiss(), 0.4))
+          config.sensor_model_miss = getCurrentOctree()->getProbMiss();
+		if(!is_equal(getCurrentOctree()->getClampingThresMin(), 0.12))
+          config.sensor_model_min = getCurrentOctree()->getClampingThresMin();
+		if(!is_equal(getCurrentOctree()->getClampingThresMax(), 0.97))
+          config.sensor_model_max = getCurrentOctree()->getClampingThresMax();
         m_initConfig = false;
 
 	    boost::recursive_mutex::scoped_lock reconf_lock(m_config_mutex);
@@ -1215,19 +1218,18 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
       m_groundFilterAngle         = config.ground_filter_angle;
       m_groundFilterPlaneDistance = config.ground_filter_plane_distance;
       m_maxRange                  = config.sensor_model_max_range;
-      m_octree->setClampingThresMin(config.sensor_model_min);
-      m_octree->setClampingThresMax(config.sensor_model_max);
+      getCurrentOctree()->setClampingThresMin(config.sensor_model_min);
+      getCurrentOctree()->setClampingThresMax(config.sensor_model_max);
 
      // Checking values that might create unexpected behaviors.
       if (is_equal(config.sensor_model_hit, 1.0))
 		config.sensor_model_hit -= 1.0e-6;
-      m_octree->setProbHit(config.sensor_model_hit);
+      getCurrentOctree()->setProbHit(config.sensor_model_hit);
 	  if (is_equal(config.sensor_model_miss, 0.0))
 		config.sensor_model_miss += 1.0e-6;
-      m_octree->setProbMiss(config.sensor_model_miss);
+      getCurrentOctree()->setProbMiss(config.sensor_model_miss);
 	}
   }
-  printf("reconfigureCallback");
   publishAll();
 }
 
