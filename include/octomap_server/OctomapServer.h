@@ -124,10 +124,14 @@ protected:
   }
 
   void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
+  void reconfigureCallback2(octomap_server::OctomapServerConfig& config, uint32_t level);
+
   void resolutionCallback(const std_msgs::Float32::ConstPtr& msg);
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
+  virtual void publishAll2(const ros::Time& rostime = ros::Time::now());
+
 
   /**
   * @brief update occupancy map with a scan labeled as ground and nonground.
@@ -138,6 +142,7 @@ protected:
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
   virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertScan2(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground); //2번째 insertScan 함수 
 
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
@@ -151,6 +156,7 @@ protected:
 
   /// hook that is called before traversing all nodes
   virtual void handlePreNodeTraversal(const ros::Time& rostime);
+  virtual void handlePreNodeTraversal2(const ros::Time& rostime);
 
   /// hook that is called when traversing all nodes of the updated Octree (does nothing here)
   virtual void handleNode(const OcTreeT::iterator& it) {};
@@ -203,7 +209,7 @@ protected:
 
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub;
+  ros::Publisher  m_markerPub, m_markerPub2, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_pointCloudPub2, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fmarkerPub2;
   ros::Subscriber m_resolutionSub; //resolution subscriber 선언
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
@@ -213,6 +219,7 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
   OcTreeT* m_octree;
+  OcTreeT* m1_octree; //새로운 해상도 옥트리
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
@@ -227,10 +234,14 @@ protected:
 
   bool m_latchedTopics;
   bool m_publishFreeSpace;
+  bool resSet; // 해상도 변경 여부
 
   double m_res;
+  double m1_res; // 새로운 해상도
   unsigned m_treeDepth;
+  unsigned m1_treeDepth;
   unsigned m_maxTreeDepth;
+  unsigned m1_maxTreeDepth;
 
   double m_pointcloudMinX;
   double m_pointcloudMaxX;
