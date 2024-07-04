@@ -218,6 +218,10 @@ protected:
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
+  visualization_msgs::MarkerArray occupiedNodesVis;
+  visualization_msgs::MarkerArray freeNodesVis;
+  sensor_msgs::PointCloud2 cloud;
+  
   OcTreeT* m_octree;
   OcTreeT* m1_octree; //새로운 해상도 옥트리
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
@@ -235,6 +239,7 @@ protected:
   bool m_latchedTopics;
   bool m_publishFreeSpace;
   bool resSet; // 해상도 변경 여부
+  int selectedOctree; // 옥트리 변환 변수 
 
   double m_res;
   double m1_res; // 새로운 해상도

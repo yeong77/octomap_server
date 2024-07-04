@@ -56,6 +56,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_res(0.05),
   m1_res(0.0),
   resSet(false),
+  selectedOctree(0), // 옥트리 변환 변수 
   m_treeDepth(0),
   m1_treeDepth(0),
   m_maxTreeDepth(0),
@@ -172,14 +173,14 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
   m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
-  m_markerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
+  // m_markerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
   m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
   m_fullMapPub = m_nh.advertise<Octomap>("octomap_full", 1, m_latchedTopics);
   m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
-  m_pointCloudPub2 = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
+  // m_pointCloudPub2 = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
-  m_fmarkerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
+  // m_fmarkerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
 
   m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
   m_resolutionSub = m_nh.subscribe<std_msgs::Float32>("/resolution", 10, boost::bind(&OctomapServer::resolutionCallback, this, _1)); // resolution 서브스크라이버 선언
@@ -189,6 +190,12 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
   m_clearBBXService = private_nh.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
   m_resetService = private_nh.advertiseService("reset", &OctomapServer::resetSrv, this);
+  
+  // init markers:
+  visualization_msgs::MarkerArray occupiedNodesVis;
+  // init markers for free space:
+  visualization_msgs::MarkerArray freeNodesVis;
+  sensor_msgs::PointCloud2 cloud;
 
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f1;
   // dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f2;
@@ -209,6 +216,7 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
   m1_res = msg->data;
   ROS_INFO("%f", m1_res);
+
 
   resSet = true; 
   m1_octree = new OcTreeT(m1_res);
@@ -393,7 +401,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
   publishAll(cloud->header.stamp);
-  
+
   if (resSet) {
     publishAll2(cloud->header.stamp);
   }
@@ -670,7 +678,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   m_publish2DMap = (m_latchedTopics || m_mapPub.getNumSubscribers() > 0);
 
   // init markers for free space:
-  visualization_msgs::MarkerArray freeNodesVis;
+  //visualization_msgs::MarkerArray freeNodesVis;
   // each array stores all cubes of a different size, one for each depth level:
   freeNodesVis.markers.resize(m_treeDepth+1);
 
@@ -678,7 +686,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   pose.orientation = tf::createQuaternionMsgFromYaw(0.0);
 
   // init markers:
-  visualization_msgs::MarkerArray occupiedNodesVis;
+  //visualization_msgs::MarkerArray occupiedNodesVis;
   // each array stores all cubes of a different size, one for each depth level:
   occupiedNodesVis.markers.resize(m_treeDepth+1);
 
@@ -820,7 +828,9 @@ void OctomapServer::publishAll(const ros::Time& rostime){
         occupiedNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
     }
 
+    
     m_markerPub.publish(occupiedNodesVis);
+    
   }
 
 
@@ -852,7 +862,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 
   // finish pointcloud:
   if (publishPointCloud){
-    sensor_msgs::PointCloud2 cloud;
+    // sensor_msgs::PointCloud2 cloud;
     pcl::toROSMsg (pclCloud, cloud);
     cloud.header.frame_id = m_worldFrameId;
     cloud.header.stamp = rostime;
@@ -1037,8 +1047,10 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
       else
         occupiedNodesVis2.markers[i].action = visualization_msgs::Marker::DELETE;
     }
-
-    m_markerPub2.publish(occupiedNodesVis2);
+    
+     
+    m_markerPub.publish(occupiedNodesVis);
+    m_markerPub.publish(occupiedNodesVis2);
   }
 
 
@@ -1064,7 +1076,8 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
         freeNodesVis2.markers[i].action = visualization_msgs::Marker::DELETE;
     }
 
-    m_fmarkerPub2.publish(freeNodesVis2);
+    m_fmarkerPub.publish(freeNodesVis);
+    m_fmarkerPub.publish(freeNodesVis2);
   }
 
 
@@ -1074,7 +1087,8 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
     pcl::toROSMsg (pclCloud, cloud2);
     cloud2.header.frame_id = m_worldFrameId;
     cloud2.header.stamp = rostime;
-    m_pointCloudPub2.publish(cloud2);
+    m_pointCloudPub.publish(cloud);
+    m_pointCloudPub.publish(cloud2);
   }
 
   if (publishBinaryMap)
