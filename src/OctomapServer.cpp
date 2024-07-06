@@ -217,6 +217,18 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
   m1_res = msg->data;
   ROS_INFO("%f", m1_res);
 
+  int choice;
+  printf("Select Octree to use:\n1. Original Octree\n2. New Octree\n");
+  scanf("%d", &choice);
+
+  if (choice == 1) {
+        selectedOctree = 1;
+    } else if (choice == 2) {
+        selectedOctree = 2;
+    } else {
+        printf("Invalid choice, defaulting to Original Octree.\n");
+        selectedOctree = 1;
+    }
 
   resSet = true; 
   m1_octree = new OcTreeT(m1_res);
@@ -1048,9 +1060,13 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
         occupiedNodesVis2.markers[i].action = visualization_msgs::Marker::DELETE;
     }
     
-     
-    m_markerPub.publish(occupiedNodesVis);
-    m_markerPub.publish(occupiedNodesVis2);
+    if (selectedOctree == 1){
+      m_markerPub.publish(occupiedNodesVis);
+    }
+    else{
+      m_markerPub.publish(occupiedNodesVis2);
+    }
+    
   }
 
 
@@ -1076,8 +1092,13 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
         freeNodesVis2.markers[i].action = visualization_msgs::Marker::DELETE;
     }
 
-    m_fmarkerPub.publish(freeNodesVis);
-    m_fmarkerPub.publish(freeNodesVis2);
+    if (selectedOctree == 1){
+      m_fmarkerPub.publish(freeNodesVis);
+    }
+    else{
+      m_fmarkerPub.publish(freeNodesVis2);
+    }
+    
   }
 
 
@@ -1087,8 +1108,14 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
     pcl::toROSMsg (pclCloud, cloud2);
     cloud2.header.frame_id = m_worldFrameId;
     cloud2.header.stamp = rostime;
-    m_pointCloudPub.publish(cloud);
-    m_pointCloudPub.publish(cloud2);
+
+    if (selectedOctree == 1){
+      m_pointCloudPub.publish(cloud);
+    }
+    else{
+      m_pointCloudPub.publish(cloud2);
+    }
+    
   }
 
   if (publishBinaryMap)
