@@ -339,6 +339,19 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
 
 
+  //포인트 클라우드 크롭 필터 설정
+  pcl::CropBox<PCLPoint> cropFilter;
+  cropFilter.setInputCloud(pc.makeShared());
+
+  Eigen::Vector4f minPoint(-10, -10, 0, 1);
+  Eigen::Vector4f maxPoint(10, 10, 10, 1);
+  cropFilter.setMin(minPoint);
+  cropFilter.setMax(maxPoint);
+
+  PCLPointCloud croppedCloud;
+  cropFilter.filter(croppedCloud);
+
+
   // set up filter for height range, also removes NANs:
   pcl::PassThrough<PCLPoint> pass_x;
   pass_x.setFilterFieldName("x");
@@ -371,6 +384,11 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl_ros::transformAsMatrix(sensorToBaseTf, sensorToBase);
     pcl_ros::transformAsMatrix(baseToWorldTf, baseToWorld);
 
+    if (resSet){
+      pc = croppedCloud;
+    }
+    else {
+    }
     // transform pointcloud from sensor frame to fixed robot frame
     pcl::transformPointCloud(pc, pc, sensorToBase);
     pass_x.setInputCloud(pc.makeShared());
@@ -386,6 +404,12 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
   } else {
     // directly transform to map frame:
+
+    if (resSet){
+      pc = croppedCloud;
+    }
+    else {
+    }
     pcl::transformPointCloud(pc, pc, sensorToWorld);
 
     // just filter height range:
