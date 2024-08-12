@@ -44,75 +44,119 @@ using namespace octomap;
 
 class MapSaver{
 public:
-  MapSaver(const std::string& mapname, bool full){
+  MapSaver(const std::string& mapname1, const std::string& mapname2, bool full){
     ros::NodeHandle n;
-    std::string servname = "octomap_binary";
+    std::string servname1 = "octomap_binary";
     if (full)
-      servname = "octomap_full";
-    ROS_INFO("Requesting the map from %s...", n.resolveName(servname).c_str());
-    GetOctomap::Request req;
-    GetOctomap::Response resp;
-    while(n.ok() && !ros::service::call(servname, req, resp))
+      servname1 = "octomap_full";
+    ROS_INFO("Requesting the map from %s...", n.resolveName(servname1).c_str());
+    GetOctomap::Request req1;
+    GetOctomap::Response resp1;
+    while(n.ok() && !ros::service::call(servname1, req1, resp1))
     {
-      ROS_WARN("Request to %s failed; trying again...", n.resolveName(servname).c_str());
+      ROS_WARN("Request to %s failed; trying again...", n.resolveName(servname1).c_str());
       usleep(1000000);
     }
 
     if (n.ok()){ // skip when CTRL-C
-
-      AbstractOcTree* tree = octomap_msgs::msgToMap(resp.map);
-      AbstractOccupancyOcTree* octree = NULL;
-      if (tree){
-        octree = dynamic_cast<AbstractOccupancyOcTree*>(tree);
+      AbstractOcTree* tree1 = octomap_msgs::msgToMap(resp1.map);
+      AbstractOccupancyOcTree* octree1 = NULL;
+      if (tree1){
+        octree1 = dynamic_cast<AbstractOccupancyOcTree*>(tree1);
       } else {
         ROS_ERROR("Error creating octree from received message");
-        if (resp.map.id == "ColorOcTree")
+        if (resp1.map.id == "ColorOcTree")
           ROS_WARN("You requested a binary map for a ColorOcTree - this is currently not supported. Please add -f to request a full map");
       }
 
-      if (octree){
-        ROS_INFO("Map received (%zu nodes, %f m res), saving to %s", octree->size(), octree->getResolution(), mapname.c_str());
+      if (octree1){
+        //ROS_INFO("Map received (%zu nodes, %f m res), saving to %s", octree->size(), octree->getResolution(), mapname.c_str());
         
-        std::string suffix = mapname.substr(mapname.length()-3, 3);
-        if (suffix== ".bt"){ // write to binary file:
-          if (!octree->writeBinary(mapname)){
-            ROS_ERROR("Error writing to file %s", mapname.c_str());
+        std::string suffix1 = mapname1.substr(mapname1.length()-3, 3);
+        if (suffix1 == ".bt"){ // write to binary file:
+          if (!octree1->writeBinary(mapname1)){
+            ROS_ERROR("Error writing to file %s", mapname1.c_str());
           }
-        } else if (suffix == ".ot"){ // write to full .ot file:
-          if (!octree->write(mapname)){
-            ROS_ERROR("Error writing to file %s", mapname.c_str());
+        } else if (suffix1 == ".ot"){ // write to full .ot file:
+          if (!octree1->write(mapname1)){
+            ROS_ERROR("Error writing to file %s", mapname1.c_str());
           }
         } else{
           ROS_ERROR("Unknown file extension, must be either .bt or .ot");
         }
-
-
       } else{
         ROS_ERROR("Error reading OcTree from stream");
       }
 
-      delete octree;
+      delete octree1;
 
+    }
+
+    std::string servname2 = "octomap_binary1";
+    if (full)
+      servname2 = "octomap_full1";
+    ROS_INFO("Requesting the map from %s...", n.resolveName(servname2).c_str());
+    GetOctomap::Request req2;
+    GetOctomap::Response resp2;
+    while(n.ok() && !ros::service::call(servname2, req2, resp2))
+    {
+      ROS_WARN("Request to %s failed; trying again...", n.resolveName(servname2).c_str());
+      usleep(1000000);
+    }
+
+    if (n.ok()){ // skip when CTRL-C
+      AbstractOcTree* tree2 = octomap_msgs::msgToMap(resp2.map);
+      AbstractOccupancyOcTree* octree2 = NULL;
+      if (tree2){
+        octree2 = dynamic_cast<AbstractOccupancyOcTree*>(tree2);
+      } else {
+        ROS_ERROR("Error creating octree2 from received message");
+        if (resp2.map.id == "ColorOcTree")
+          ROS_WARN("You requested a binary map for a ColorOcTree - this is currently not supported. Please add -f to request a full map");
+      }
+
+      if (octree2){
+        std::string suffix2 = mapname2.substr(mapname2.length()-3, 3);
+        if (suffix2 == ".bt"){ // write to binary file:
+          if (!octree2->writeBinary(mapname2)){
+            ROS_ERROR("Error writing to file %s", mapname2.c_str());
+          }
+        } else if (suffix2 == ".ot"){ // write to full .ot file:
+          if (!octree2->write(mapname2)){
+            ROS_ERROR("Error writing to file %s", mapname2.c_str());
+          }
+        } else{
+          ROS_ERROR("Unknown file extension, must be either .bt or .ot");
+        }
+      } else{
+        ROS_ERROR("Error reading OcTree from stream");
+      }
+
+      delete octree2;
     }
   }
 };
 
 int main(int argc, char** argv){
   ros::init(argc, argv, "octomap_saver");
-  std::string mapFilename("");
+  std::string mapFilename1("");
+  std::string mapFilename2("");
   bool fullmap = false;
-  if (argc == 3 && strcmp(argv[1], "-f")==0){
+  if (argc == 4 && strcmp(argv[1], "-f")==0){
     fullmap = true;
-    mapFilename = std::string(argv[2]);
-  } else if (argc == 2)
-    mapFilename = std::string(argv[1]);
-  else{
+    mapFilename1 = std::string(argv[2]);
+    mapFilename2 = std::string(argv[3]);
+    
+  } else if (argc == 3){
+    mapFilename1 = std::string(argv[1]);
+    mapFilename2 = std::string(argv[2]);
+  } else{
     ROS_ERROR("%s", USAGE);
     exit(1);
   }
 
   try{
-    MapSaver ms(mapFilename, fullmap);
+    MapSaver ms(mapFilename1, mapFilename2 , fullmap);
   }catch(std::runtime_error& e){
     ROS_ERROR("octomap_saver exception: %s", e.what());
     exit(2);

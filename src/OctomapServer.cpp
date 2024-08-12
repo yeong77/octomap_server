@@ -53,7 +53,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.05),
+  m_res(0.30),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
@@ -188,6 +188,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1));
   m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &OctomapServer::octomapBinarySrv, this);
   m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
+  m_octomapFullService1 = m_nh.advertiseService("octomap_full1", &OctomapServer::octomapFullSrv1, this);
   m_clearBBXService = private_nh.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
   m_resetService = private_nh.advertiseService("reset", &OctomapServer::resetSrv, this);
   
@@ -711,6 +712,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   bool publishPointCloud = (m_latchedTopics || m_pointCloudPub.getNumSubscribers() > 0);
   bool publishBinaryMap = (m_latchedTopics || m_binaryMapPub.getNumSubscribers() > 0);
   bool publishFullMap = (m_latchedTopics || m_fullMapPub.getNumSubscribers() > 0);
+  
   m_publish2DMap = (m_latchedTopics || m_mapPub.getNumSubscribers() > 0);
 
   // init markers for free space:
@@ -1178,9 +1180,20 @@ bool OctomapServer::octomapFullSrv(OctomapSrv::Request  &req,
   res.map.header.stamp = ros::Time::now();
 
 
-  if (!octomap_msgs::fullMapToMsg(*m_octree, res.map))
+  if (!octomap_msgs::fullMapToMsg(*m_octree, res.map)) // m_octree 데이터 전송
     return false;
+  return true;
+}
 
+bool OctomapServer::octomapFullSrv1(OctomapSrv::Request  &req,
+                                    OctomapSrv::Response &res)
+{
+  ROS_INFO("Sending full map data on service request");
+  res.map.header.frame_id = m_worldFrameId;
+  res.map.header.stamp = ros::Time::now();
+
+  if (!octomap_msgs::fullMapToMsg(*m1_octree, res.map)) // m1_octree 데이터 전송
+    return false;
   return true;
 }
 
