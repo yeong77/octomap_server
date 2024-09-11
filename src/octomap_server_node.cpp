@@ -47,10 +47,9 @@ using namespace octomap_server;
 int main(int argc, char** argv){
   ros::init(argc, argv, "octomap_server");
   const ros::NodeHandle& private_nh = ros::NodeHandle("~");
-  std::string mapFilename(""), mapFilenameParam("");
+  std::string mapFilename1(""), mapFilename2(""), mapFilenameParam1(""), mapFilenameParam2("");
 
-
-  if (argc > 2 || (argc == 2 && std::string(argv[1]) == "-h")){
+  if (argc > 3 || (argc == 2 && std::string(argv[1]) == "-h")){
     ROS_ERROR("%s", USAGE);
     exit(-1);
   }
@@ -58,21 +57,60 @@ int main(int argc, char** argv){
   OctomapServer server;
   ros::spinOnce();
 
-  if (argc == 2){
-    mapFilename = std::string(argv[1]);
-  }
+  // if (argc == 2){
+  //   mapFilename = std::string(argv[1]);
+  // }
 
-  if (private_nh.getParam("map_file", mapFilenameParam)) {
-    if (mapFilename != "") {
-      ROS_WARN("map_file is specified by the argument '%s' and rosparam '%s'. now loads '%s'", mapFilename.c_str(), mapFilenameParam.c_str(), mapFilename.c_str());
-    } else {
-      mapFilename = mapFilenameParam;
+  if (argc == 2 || argc == 3){
+    mapFilename1 = std::string(argv[1]);
+    if (argc == 3) {
+      mapFilename2 = std::string(argv[2]);
     }
   }
 
-  if (mapFilename != "") {
-    if (!server.openFile(mapFilename)){
-      ROS_ERROR("Could not open file %s", mapFilename.c_str());
+  // if (private_nh.getParam("map_file", mapFilenameParam)) {
+  //   if (mapFilename != "") {
+  //     ROS_WARN("map_file is specified by the argument '%s' and rosparam '%s'. now loads '%s'", mapFilename.c_str(), mapFilenameParam.c_str(), mapFilename.c_str());
+  //   } else {
+  //     mapFilename = mapFilenameParam;
+  //   }
+  // }
+
+  if (private_nh.getParam("map_file_1", mapFilenameParam1)) {
+    if (mapFilename1 != "") {
+      ROS_WARN("map_file_1 is specified by the argument '%s' and rosparam '%s'. Now loading '%s'", mapFilename1.c_str(), mapFilenameParam1.c_str(), mapFilename1.c_str());
+    } else {
+      mapFilename1 = mapFilenameParam1;
+    }
+  }
+
+  if (private_nh.getParam("map_file_2", mapFilenameParam2)) {
+    if (mapFilename2 != "") {
+      ROS_WARN("map_file_2 is specified by the argument '%s' and rosparam '%s'. Now loading '%s'", mapFilename2.c_str(), mapFilenameParam2.c_str(), mapFilename2.c_str());
+    } else {
+      mapFilename2 = mapFilenameParam2;
+    }
+  }
+
+  // if (mapFilename != "") {
+  //   if (!server.openFile(mapFilename)){
+  //     ROS_ERROR("Could not open file %s", mapFilename.c_str());
+  //     exit(1);
+  //   }
+  // }
+
+  // Load the first map
+  if (mapFilename1 != "") {
+    if (!server.openFile(mapFilename1)){
+      ROS_ERROR("Could not open file %s", mapFilename1.c_str());
+      exit(1);
+    }
+  }
+
+  // Load the second map if provided
+  if (mapFilename2 != "") {
+    if (!server.openFile(mapFilename2)){
+      ROS_ERROR("Could not open file %s", mapFilename2.c_str());
       exit(1);
     }
   }
