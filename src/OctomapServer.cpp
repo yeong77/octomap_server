@@ -53,7 +53,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.05),
+  m_res(0.5),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
@@ -223,25 +223,30 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
 
   if (choice == 1) {
         selectedOctree = 1;
+        resSet = false;
+
     } else if (choice == 2) {
         selectedOctree = 2;
+        if (!m1_octree) {
+          m1_octree = new OcTreeT(m1_res);
+          m1_octree->setProbHit(0.7);
+          m1_octree->setProbMiss(0.4);
+          m1_octree->setClampingThresMin(0.12);
+          m1_octree->setClampingThresMax(0.97);
+          m1_treeDepth = m1_octree->getTreeDepth();
+          m1_maxTreeDepth = m1_treeDepth;
+          m_gridmap.info.resolution = m1_res;
+        }
+        resSet = true; 
+        dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f2;
+        f2 = boost::bind(&OctomapServer::reconfigureCallback2, this, _1, _2);
+        m_reconfigureServer.setCallback(f2);
     } else {
         printf("Invalid choice, defaulting to Original Octree.\n");
         selectedOctree = 1;
     }
 
-  resSet = true; 
-  m1_octree = new OcTreeT(m1_res);
-  m1_octree->setProbHit(0.7);
-  m1_octree->setProbMiss(0.4);
-  m1_octree->setClampingThresMin(0.12);
-  m1_octree->setClampingThresMax(0.97);
-  m1_treeDepth = m1_octree->getTreeDepth();
-  m1_maxTreeDepth = m1_treeDepth;
-  m_gridmap.info.resolution = m1_res;
-  dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f2;
-  f2 = boost::bind(&OctomapServer::reconfigureCallback2, this, _1, _2);
-  m_reconfigureServer.setCallback(f2);
+  
 
 }
 
