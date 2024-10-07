@@ -61,6 +61,9 @@ target_link_libraries(octomap_server_multilayer ${PROJECT_NAME} ${LINK_LIBS})
 add_executable(octomap_saver src/octomap_saver.cpp)
 target_link_libraries(octomap_saver ${PROJECT_NAME} ${LINK_LIBS})
 
+add_executable(octomap_merger src/octomap_merger.cpp)
+target_link_libraries(octomap_merger ${PROJECT_NAME} ${LINK_LIBS})
+
 add_executable(octomap_tracking_server_node src/octomap_tracking_server_node.cpp)
 target_link_libraries(octomap_tracking_server_node ${PROJECT_NAME} ${LINK_LIBS})
 
@@ -76,6 +79,7 @@ install(TARGETS ${PROJECT_NAME}
   octomap_saver
   octomap_tracking_server_node
   octomap_server_nodelet
+  octomap_merger
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
