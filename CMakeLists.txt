@@ -16,11 +16,14 @@ set(PACKAGE_DEPENDENCIES
   nodelet
 )
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
 
 find_package(octomap REQUIRED)
 add_definitions(-DOCTOMAP_NODEBUGOUT)
+add_compile_options(-std=c++11)
 
 include_directories(
   include
@@ -64,6 +67,9 @@ target_link_libraries(octomap_saver ${PROJECT_NAME} ${LINK_LIBS})
 add_executable(octomap_merger src/octomap_merger.cpp)
 target_link_libraries(octomap_merger ${PROJECT_NAME} ${LINK_LIBS})
 
+add_executable(octomap_test src/octomap_test.cpp)
+target_link_libraries(octomap_test ${PROJECT_NAME} ${LINK_LIBS})
+
 add_executable(octomap_tracking_server_node src/octomap_tracking_server_node.cpp)
 target_link_libraries(octomap_tracking_server_node ${PROJECT_NAME} ${LINK_LIBS})
 
@@ -80,6 +86,7 @@ install(TARGETS ${PROJECT_NAME}
   octomap_tracking_server_node
   octomap_server_nodelet
   octomap_merger
+  octomap_test
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
