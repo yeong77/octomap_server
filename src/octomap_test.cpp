@@ -25,7 +25,6 @@ int main(int argc, char** argv) {
     
     
     
-    tree.updateNode(coord3, false);
     // OcTreeNode* node = tree.search(coord3);
     // if (!tree.nodeHasChildren(node)) {
     //     tree.expandNode(node);  // 자식 노드로 확장
@@ -43,12 +42,23 @@ int main(int argc, char** argv) {
     //     printf("noooooo");
     // }
     
-    tree.updateNode(coord2, true); // 좌표 (idx.0, 3.0, idx.0) 점유
-    // tree.updateNode(coord3, true); 
+    // tree.updateNode(coord3, true); // 좌표 (idx.0, 3.0, idx.0) 점유
+    tree.updateNode(coord3, true);
 
-    
+    tree.updateNode(coord3, false);
+    tree.clear();
 
-
+    OcTreeNode* parentNode = tree.search(coord3);
+    if (parentNode) {
+        if (tree.isNodeOccupied(parentNode)) {
+            ROS_INFO("Parent node is occupied.");
+        } else {
+            ROS_INFO("Parent node is free.");
+        }
+    }
+    else{
+        printf("clear");
+    }
     
         
    
@@ -78,13 +88,13 @@ int main(int argc, char** argv) {
             unsigned int idx = it.getDepth();
             // printf("Node depth: %u\n", it.getDepth());
             geometry_msgs::Point cube_center;
-            
+            cube_center.x = it.getX();
+            cube_center.y = it.getY();
+            cube_center.z = it.getZ();
             
             if (tree.isNodeOccupied(*it)) {
                 // 점유된 노드 시각화
-                cube_center.x = it.getX();
-                cube_center.y = it.getY();
-                cube_center.z = it.getZ();
+                
                 // printf("x,y,z : %f, %f, %f", cube_center.x, cube_center.y, cube_center.z);
                 marker_array.markers[idx].points.push_back(cube_center);
                 marker_array.markers[idx].header.frame_id = "map";
@@ -103,22 +113,19 @@ int main(int argc, char** argv) {
                 // printf("count %d", count);
             } else {
                 // 자유 공간 노드 시각화
-                cube_center.x = 4.25;
-                cube_center.y = 4.25;
-                cube_center.z = 0.25;
-                marker_array.markers[2].points.push_back(cube_center);
-                marker_array.markers[2].header.frame_id = "map";
-                marker_array.markers[2].header.stamp = ros::Time::now();
-                marker_array.markers[2].ns = "free_space";
-                marker_array.markers[2].type = visualization_msgs::Marker::CUBE_LIST;
-                marker_array.markers[2].scale.x = 0.5;
-                marker_array.markers[2].scale.y = 0.5;
-                marker_array.markers[2].scale.z = 0.5;
-                marker_array.markers[2].color.r = 0.0;
-                marker_array.markers[2].color.g = 0.0;
-                marker_array.markers[2].color.b = 1.0;  // 자유 공간은 파란색으로 설정
-                marker_array.markers[2].color.a = 0.5;  // 자유 공간은 반투명으로 설정
-                marker_array.markers[2].action = visualization_msgs::Marker::ADD;
+                marker_array.markers[idx].points.push_back(cube_center);
+                marker_array.markers[idx].header.frame_id = "map";
+                marker_array.markers[idx].header.stamp = ros::Time::now();
+                marker_array.markers[idx].ns = "free_space";
+                marker_array.markers[idx].type = visualization_msgs::Marker::CUBE_LIST;
+                marker_array.markers[idx].scale.x = 1.0;
+                marker_array.markers[idx].scale.y = 1.0;
+                marker_array.markers[idx].scale.z = 1.0;
+                marker_array.markers[idx].color.r = 0.0;
+                marker_array.markers[idx].color.g = 0.0;
+                marker_array.markers[idx].color.b = 1.0;  // 자유 공간은 파란색으로 설정
+                marker_array.markers[idx].color.a = 0.5;  // 자유 공간은 반투명으로 설정
+                marker_array.markers[idx].action = visualization_msgs::Marker::ADD;
             }
             
         }
