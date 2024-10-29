@@ -53,11 +53,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-<<<<<<< HEAD
-  m_res(0.30),
-=======
-  m_res(0.5),
->>>>>>> fix/resolutionCallback
+  m_res(1.0),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
@@ -628,9 +624,16 @@ void OctomapServer::insertScan2(const tf::Point& sensorOriginTf, const PCLPointC
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
       }
       // occupied endpoint
-      OcTreeKey key;
+      OcTreeKey key; // High resolution key 
+      OcTreeKey keyl; //Low resolution key
       if (m1_octree->coordToKeyChecked(point, key)){
-        occupied_cells.insert(key);
+        if (m_octree->coordToKeyChecked(point, keyl)){
+          OcTreeNode* nodel = m_octree->search(keyl);
+          if (nodel ==nullptr){
+            occupied_cells.insert(key);
+          }
+        }
+        
 
         updateMinKey(key, m_updateBBXMin);
         updateMaxKey(key, m_updateBBXMax);

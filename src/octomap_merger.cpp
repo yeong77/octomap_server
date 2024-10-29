@@ -43,6 +43,7 @@ void updateLargeTreeWithSmallTree(OcTree& smallTree, OcTree& largeTree, OcTree& 
         }
 
     }
+    
     smallTree.clear();
 }
 

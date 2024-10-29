@@ -128,7 +128,9 @@ protected:
   void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
   void reconfigureCallback2(octomap_server::OctomapServerConfig& config, uint32_t level);
 
-  void resolutionCallback(const std_msgs::Float32::ConstPtr& msg);
+  void resolutionCallback(const std_msgs::Float32::ConstPtr& msg); 
+  // void updateLargewithSmall(const OcTreeT* largeTree, const OcTreeT* smallTree, double m1_res);
+
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
@@ -225,7 +227,8 @@ protected:
   sensor_msgs::PointCloud2 cloud;
   
   OcTreeT* m_octree;
-  OcTreeT* m1_octree; //새로운 해상도 옥트리
+  OcTreeT* m1_octree; //임시 해상도 옥트리
+  OcTreeT* new_octree; // 최종 해상도 옥트리 
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
@@ -247,6 +250,7 @@ protected:
   double m1_res; // 새로운 해상도
   unsigned m_treeDepth;
   unsigned m1_treeDepth;
+  unsigned new_treeDepth; 
   unsigned m_maxTreeDepth;
   unsigned m1_maxTreeDepth;
 
