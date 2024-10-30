@@ -135,7 +135,7 @@ protected:
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
   virtual void publishAll2(const ros::Time& rostime = ros::Time::now());
-
+  void publishMarker();
 
   /**
   * @brief update occupancy map with a scan labeled as ground and nonground.
@@ -213,7 +213,7 @@ protected:
 
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
-  ros::Publisher  m_markerPub, m_markerPub2, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_pointCloudPub2, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fmarkerPub2;
+  ros::Publisher  m_markerPub, m_markerPub2, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_pointCloudPub2, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fmarkerPub2; 
   ros::Subscriber m_resolutionSub; //resolution subscriber 선언
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
@@ -223,7 +223,13 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
   visualization_msgs::MarkerArray occupiedNodesVis;
+  visualization_msgs::MarkerArray occupiedNodesVis2;
+  visualization_msgs::MarkerArray marker_array;
+
+
   visualization_msgs::MarkerArray freeNodesVis;
+  visualization_msgs::MarkerArray freeNodesVis2;
+
   sensor_msgs::PointCloud2 cloud;
   
   OcTreeT* m_octree;

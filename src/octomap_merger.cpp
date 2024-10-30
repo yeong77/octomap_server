@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
                 // printf("x,y,z : %f, %f, %f", cube_center.x, cube_center.y, cube_center.z);
                 marker_array.markers[idx].points.push_back(cube_center);
                 marker_array.markers[idx].header.frame_id = "map";
-                marker_array.markers[idx].header.stamp = ros::Time::now();
+                marker_array.markers[idx].header.stamp = ros::Time::now() ;
                 marker_array.markers[idx].ns = "occupied_space";
                 marker_array.markers[idx].type = visualization_msgs::Marker::CUBE_LIST;
                 marker_array.markers[idx].scale.x = it.getSize();
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
         for (OcTree::iterator it = tree.begin(), end = tree.end(); it != end; ++it) {
             // printf("Node depth: %u\n", it.getDepth());
             geometry_msgs::Point cube_center;
-            
+            unsigned int idx = it.getDepth();
             cube_center.x = it.getX();
             cube_center.y = it.getY();
             cube_center.z = it.getZ();

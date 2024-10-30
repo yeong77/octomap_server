@@ -173,6 +173,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
   m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
+
+
   // m_markerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
   m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
   m_fullMapPub = m_nh.advertise<Octomap>("octomap_full", 1, m_latchedTopics);
@@ -442,7 +444,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
-  publishAll(cloud->header.stamp);
+  // publishAll(cloud->header.stamp);
+  publishMarker();
 
   if (resSet) {
     publishAll2(cloud->header.stamp);
@@ -923,6 +926,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
     publishBinaryOctoMap(rostime);
 
   if (publishFullMap)
+    printf("dsfdsfa");
     publishFullOctoMap(rostime);
 
 
@@ -1107,6 +1111,8 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
     
   }
 
+  
+
 
   // finish FreeMarkerArray:
   if (publishFreeMarkerArray){
@@ -1166,6 +1172,53 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Map publishing in OctomapServer took %f sec", total_elapsed);
 
+}
+
+void OctomapServer::publishMarker(){  //마커
+  
+  // while(ros::ok()){
+  // printf("aaaa");
+  octomap_msgs::Octomap octomap_msg;
+  // octomap_msgs::Octomap octomap_msg2;
+  octomap_msgs::fullMapToMsg(*m_octree, octomap_msg);
+  // octomap_msgs::fullMapToMsg(*m1_octree, octomap_msg2);
+  octomap_msg.header.frame_id = "map";
+  // octomap_msg2.header.frame_id = "map";
+  octomap_msg.header.stamp = ros::Time::now();
+  // octomap_msg2.header.stamp = ros::Time::now();
+  m_fullMapPub.publish(octomap_msg);
+  // m_fullMapPub.publish(octomap_msg2);
+
+  // 실시간 마커 생성 및 발행
+  visualization_msgs::MarkerArray marker_array;
+  marker_array.markers.resize(m_treeDepth+1);  // 트리 깊이만큼 마커 생성
+ 
+  for (OcTreeT::iterator it = m_octree->begin(m_maxTreeDepth),
+      end = m_octree->end(); it != end; ++it){
+        unsigned int idx = it.getDepth();
+        geometry_msgs::Point cube_center;
+        if (m_octree->isNodeOccupied(*it)) {
+                // 점유된 노드 시각화
+                cube_center.x = it.getX();
+                cube_center.y = it.getY();
+                cube_center.z = it.getZ();
+                marker_array.markers[idx].points.push_back(cube_center);
+                marker_array.markers[idx].header.frame_id = "map";
+                marker_array.markers[idx].header.stamp = ros::Time::now();
+                marker_array.markers[idx].ns = "occupied_space";
+                marker_array.markers[idx].type = visualization_msgs::Marker::CUBE_LIST;
+                marker_array.markers[idx].scale.x = it.getSize();
+                marker_array.markers[idx].scale.y = it.getSize();
+                marker_array.markers[idx].scale.z = it.getSize();
+                marker_array.markers[idx].color.r = 1.0;
+                marker_array.markers[idx].color.g = 0.0;
+                marker_array.markers[idx].color.b = 0.0;
+                marker_array.markers[idx].color.a = 1.0;
+                marker_array.markers[idx].action = visualization_msgs::Marker::ADD;
+            }
+      }
+  m_markerPub.publish(marker_array);
+  // }
 }
 
 
@@ -1771,7 +1824,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
       m_octree->setProbMiss(config.sensor_model_miss);
 	}
   }
-  publishAll();
+  // publishAll();
 }
 
 void OctomapServer::reconfigureCallback2(octomap_server::OctomapServerConfig& config, uint32_t level){
