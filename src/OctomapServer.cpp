@@ -447,9 +447,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   // publishAll(cloud->header.stamp);
   publishMarker();
 
-  if (resSet) {
-    publishAll2(cloud->header.stamp);
-  }
+  // if (resSet) {
+  //   publishAll2(cloud->header.stamp);
+  // }
   
 }
 
@@ -1175,19 +1175,20 @@ void OctomapServer::publishAll2(const ros::Time& rostime){
 }
 
 void OctomapServer::publishMarker(){  //마커
-  
-  // while(ros::ok()){
-  // printf("aaaa");
+
   octomap_msgs::Octomap octomap_msg;
-  // octomap_msgs::Octomap octomap_msg2;
   octomap_msgs::fullMapToMsg(*m_octree, octomap_msg);
-  // octomap_msgs::fullMapToMsg(*m1_octree, octomap_msg2);
   octomap_msg.header.frame_id = "map";
-  // octomap_msg2.header.frame_id = "map";
   octomap_msg.header.stamp = ros::Time::now();
-  // octomap_msg2.header.stamp = ros::Time::now();
   m_fullMapPub.publish(octomap_msg);
-  // m_fullMapPub.publish(octomap_msg2);
+  
+  if (resSet){
+    octomap_msgs::Octomap octomap_msg2;
+    octomap_msgs::fullMapToMsg(*m1_octree, octomap_msg2);
+    octomap_msg2.header.frame_id = "map";
+    octomap_msg2.header.stamp = ros::Time::now();
+    m_fullMapPub.publish(octomap_msg2);
+  }
 
   // 실시간 마커 생성 및 발행
   visualization_msgs::MarkerArray marker_array;
@@ -1217,6 +1218,32 @@ void OctomapServer::publishMarker(){  //마커
                 marker_array.markers[idx].action = visualization_msgs::Marker::ADD;
             }
       }
+  if (resSet){
+    for (OcTreeT::iterator it = m1_octree->begin(m_maxTreeDepth),
+        end = m1_octree->end(); it != end; ++it){
+          // unsigned int idx = it.getDepth();
+          geometry_msgs::Point cube_center;
+          if (m1_octree->isNodeOccupied(*it)) {
+                  // 점유된 노드 시각화
+                  cube_center.x = it.getX();
+                  cube_center.y = it.getY();
+                  cube_center.z = it.getZ();
+                  marker_array.markers[2].points.push_back(cube_center);
+                  marker_array.markers[2].header.frame_id = "map";
+                  marker_array.markers[2].header.stamp = ros::Time::now();
+                  marker_array.markers[2].ns = "occupied_new_space";
+                  marker_array.markers[2].type = visualization_msgs::Marker::CUBE_LIST;
+                  marker_array.markers[2].scale.x = it.getSize();
+                  marker_array.markers[2].scale.y = it.getSize();
+                  marker_array.markers[2].scale.z = it.getSize();
+                  marker_array.markers[2].color.r = 0.0;
+                  marker_array.markers[2].color.g = 0.0;
+                  marker_array.markers[2].color.b = 1.0;
+                  marker_array.markers[2].color.a = 1.0;
+                  marker_array.markers[2].action = visualization_msgs::Marker::ADD;
+              }
+        }
+  }
   m_markerPub.publish(marker_array);
   // }
 }
