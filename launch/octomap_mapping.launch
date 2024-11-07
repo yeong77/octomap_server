@@ -20,4 +20,6 @@
 		<remap from="cloud_in" to="/camera/depth/color/points" />
 	
 	</node>
+
+	<node pkg="octomap_server" type="path_publisher" name="path_publisher" output="screen" />
 </launch>

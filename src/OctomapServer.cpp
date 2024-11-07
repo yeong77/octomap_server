@@ -53,7 +53,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(1.0),
+  m_res(0.6),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
@@ -221,9 +221,9 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
   ROS_INFO("%f", m1_res);
 
   int choice;
-  printf("Select Octree to use:\n1. Original Octree\n2. New Octree\n");
-  scanf("%d", &choice);
-
+  // printf("Select Octree to use:\n1. Original Octree\n2. New Octree\n");
+  // scanf("%d", &choice);
+  choice = 2;
   if (choice == 1) {
         selectedOctree = 1;
         resSet = false;

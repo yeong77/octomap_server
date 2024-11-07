@@ -67,6 +67,9 @@ target_link_libraries(octomap_saver ${PROJECT_NAME} ${LINK_LIBS})
 add_executable(octomap_merger src/octomap_merger.cpp)
 target_link_libraries(octomap_merger ${PROJECT_NAME} ${LINK_LIBS})
 
+add_executable(path_publisher src/path_publisher.cpp)
+target_link_libraries(path_publisher ${PROJECT_NAME} ${LINK_LIBS})
+
 add_executable(octomap_test src/octomap_test.cpp)
 target_link_libraries(octomap_test ${PROJECT_NAME} ${LINK_LIBS})
 
@@ -87,6 +90,7 @@ install(TARGETS ${PROJECT_NAME}
   octomap_server_nodelet
   octomap_merger
   octomap_test
+  path_publisher
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
