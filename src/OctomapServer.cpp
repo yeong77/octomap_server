@@ -53,7 +53,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.05),
+  m_res(1.5),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
