@@ -53,10 +53,11 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
-  m_res(0.6),
+  m_res(0.01),
   m1_res(0.0),
   resSet(false),
   selectedOctree(0), // 옥트리 변환 변수 
+  count(0),
   m_treeDepth(0),
   m1_treeDepth(0),
   m_maxTreeDepth(0),
@@ -185,7 +186,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   // m_fmarkerPub2 = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
 
   m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
-  m_resolutionSub = m_nh.subscribe<std_msgs::Float32>("/resolution", 10, boost::bind(&OctomapServer::resolutionCallback, this, _1)); // resolution 서브스크라이버 선언
+  m_resolutionSub = m_nh.subscribe<std_msgs::Int32>("/resolution", 10, boost::bind(&OctomapServer::resolutionCallback, this, _1)); // resolution 서브스크라이버 선언
   m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
   m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1));
   m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &OctomapServer::octomapBinarySrv, this);
@@ -215,18 +216,19 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 }
 
 //resolution value callback 함수
-void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
+void OctomapServer::resolutionCallback(const std_msgs::Int32::ConstPtr& msg)
 {
-  m1_res = msg->data;
+  m1_res = 0.01;//msg->data;
   ROS_INFO("%f", m1_res);
 
   int choice;
   // printf("Select Octree to use:\n1. Original Octree\n2. New Octree\n");
   // scanf("%d", &choice);
-  choice = 2;
+  choice = msg->data;
   if (choice == 1) {
         selectedOctree = 1;
         resSet = false;
+        count = 1;
 
     } else if (choice == 2) {
         selectedOctree = 2;
@@ -239,11 +241,12 @@ void OctomapServer::resolutionCallback(const std_msgs::Float32::ConstPtr& msg)
           m1_treeDepth = m1_octree->getTreeDepth();
           m1_maxTreeDepth = m1_treeDepth;
           m_gridmap.info.resolution = m1_res;
+          dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f2;
+          f2 = boost::bind(&OctomapServer::reconfigureCallback2, this, _1, _2);
+          m_reconfigureServer.setCallback(f2);
         }
         resSet = true; 
-        dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f2;
-        f2 = boost::bind(&OctomapServer::reconfigureCallback2, this, _1, _2);
-        m_reconfigureServer.setCallback(f2);
+        
     } else {
         printf("Invalid choice, defaulting to Original Octree.\n");
         selectedOctree = 1;
@@ -437,6 +440,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   if (resSet){
       insertScan2(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
       printf("A");
+      printf("%d", count);
   }
   else {
       insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
@@ -501,10 +505,22 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
       }
       // occupied endpoint
-      OcTreeKey key;
-      if (m_octree->coordToKeyChecked(point, key)){
-        occupied_cells.insert(key);
+      OcTreeKey key; //Low resolution key
+      OcTreeKey keyh; //High resolution key 
 
+     
+      if (m_octree->coordToKeyChecked(point, key)){
+        if (count >= 1){
+          if (m1_octree->coordToKeyChecked(point, keyh)){
+            OcTreeNode* nodeh = m1_octree->search(keyh);
+            if (nodeh == nullptr){
+              occupied_cells.insert(key);
+            }
+          }
+        }
+        else{
+        occupied_cells.insert(key);
+        }
         updateMinKey(key, m_updateBBXMin);
         updateMaxKey(key, m_updateBBXMax);
 
@@ -1909,7 +1925,7 @@ void OctomapServer::reconfigureCallback2(octomap_server::OctomapServerConfig& co
       m1_octree->setProbMiss(config.sensor_model_miss);
 	}
   }
-  publishAll2();
+  //publishAll2();
 }
 
 void OctomapServer::adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::MapMetaData& oldMapInfo) const{
