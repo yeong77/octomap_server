@@ -1,4 +1,4 @@
-# Adaptive voxel mapping based on 3D Occupancy Grid Map using Object 
+# Adaptive voxel mapping based on 3D Occupancy Grid Map using Object Detection
 
 This repository was created based on this [link](https://github.com/OctoMap/octomap_mapping)
 The repository is compatible with 'Kinetic' or 'Melodic'.
